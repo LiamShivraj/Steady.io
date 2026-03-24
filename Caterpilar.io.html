@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Steady.io</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; touch-action: none; }
+        #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; }
+        .box { background: #111; padding: 40px; border: 2px solid #ffcc00; border-radius: 20px; text-align: center; color: white; }
+        input { padding: 12px; border-radius: 8px; border: none; width: 200px; margin-bottom: 20px; font-size: 16px; }
+        button { background: #ffcc00; color: black; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #score-board { position: fixed; top: 10px; left: 10px; color: #ffcc00; font-weight: bold; font-size: 20px; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="score-board">SCORE: 0</div>
+
+<div id="menu">
+    <div class="box">
+        <h1 style="color:#ffcc00; margin-top:0;">STEADY.IO</h1>
+        <input type="text" id="playerName" placeholder="Your Name" maxlength="10"><br>
+        <button onclick="start()">START GAME</button>
+    </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let player = { x: 2500, y: 2500, angle: 0, tail: [], score: 0, name: '' };
+let cam = { x: 2500, y: 2500 };
+let food = [];
+let alive = false;
+
+// Populate Food
+for(let i=0; i<300; i++) food.push({x: Math.random()*5000, y: Math.random()*5000, color: `hsl(${Math.random()*360}, 80%, 60%)`});
+
+function start() {
+    player.name = document.getElementById('playerName').value || "Steadyer";
+    document.getElementById('menu').style.display = 'none';
+    alive = true;
+    resize();
+    draw();
+}
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+// Mouse/Touch Control
+const handleMove = (e) => {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    player.angle = Math.atan2(clientY - canvas.height/2, clientX - canvas.width/2);
+};
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('touchmove', handleMove);
+
+function draw() {
+    if(!alive) return;
+
+    // Move
+    player.x += Math.cos(player.angle) * 5;
+    player.y += Math.sin(player.angle) * 5;
+    player.tail.unshift({x: player.x, y: player.y});
+    if(player.tail.length > 20 + (player.score/5)) player.tail.pop();
+
+    // Camera Lerp
+    cam.x += (player.x - cam.x) * 0.1;
+    cam.y += (player.y - cam.y) * 0.1;
+
+    // Eat
+    food.forEach((f, i) => {
+        if(Math.hypot(player.x - f.x, player.y - f.y) < 30) {
+            player.score += 10;
+            document.getElementById('score-board').innerText = "SCORE: " + player.score;
+            food[i] = {x: Math.random()*5000, y: Math.random()*5000, color: f.color};
+        }
+    });
+
+    // Clear & Render
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    ctx.translate(canvas.width/2 - cam.x, canvas.height/2 - cam.y);
+
+    // Draw Grid
+    ctx.strokeStyle = '#151515';
+    for(let i=0; i<=5000; i+=250) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 5000); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(5000, i); ctx.stroke();
+    }
+
+    food.forEach(f => {
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 8, 0, 7); ctx.fill();
+    });
+
+    // Draw Steady Caterpillar
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 25;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    player.tail.forEach((t, i) => i === 0 ? ctx.moveTo(t.x, t.y) : ctx.lineTo(t.x, t.y));
+    ctx.stroke();
+
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText(player.name, player.x, player.y - 40);
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+}
+
+window.onresize = resize;
+</script>
+</body>
+</html>
